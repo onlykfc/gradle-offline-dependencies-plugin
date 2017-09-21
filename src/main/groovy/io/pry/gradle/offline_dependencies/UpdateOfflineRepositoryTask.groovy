@@ -8,6 +8,7 @@ import io.pry.gradle.offline_dependencies.repackaged.org.apache.maven.model.path
 import io.pry.gradle.offline_dependencies.repackaged.org.apache.maven.model.path.DefaultUrlNormalizer
 import io.pry.gradle.offline_dependencies.repackaged.org.apache.maven.model.validation.DefaultModelValidator
 import org.gradle.api.DefaultTask
+import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
@@ -82,7 +83,7 @@ class UpdateOfflineRepositoryTask extends DefaultTask {
   }
 
   // configurations
-  private Set<Configuration> getConfigurations() {
+  private Set<Configuration> getConfigurations(Project prj) {
     Set<Configuration> configurations = []
 
     if (this.getConfigurationNames()) {
@@ -92,14 +93,14 @@ class UpdateOfflineRepositoryTask extends DefaultTask {
 
       configurationNames.each { name ->
         try {
-          configurations.add(project.configurations.getByName(name))
+          configurations.add(prj.configurations.getByName(name))
         } catch (UnknownConfigurationException e) {
           logger.warn("Unable to resolve project configuration with name '${name}'")
         }
       }
     } else {
       logger.trace("No project configurations specified, defaulting to all configurations")
-      configurations.addAll(project.configurations)
+      configurations.addAll(prj.configurations)
     }
 
     if (this.getIncludeBuildscriptDependencies()) {
@@ -110,14 +111,14 @@ class UpdateOfflineRepositoryTask extends DefaultTask {
 
         configurationNames.each { name ->
           try {
-            configurations.add(project.buildscript.configurations.getByName(name))
+            configurations.add(prj.buildscript.configurations.getByName(name))
           } catch (UnknownConfigurationException e) {
             logger.warn("Unable to resolve buildscript configuration with name '${name}'")
           }
         }
       } else {
         logger.trace("No buildscript configurations specified, defaulting to all configurations")
-        configurations.addAll(project.buildscript.configurations)
+        configurations.addAll(prj.buildscript.configurations)
       }
     } else {
       logger.trace("Skipping buildscript configurations")
@@ -198,9 +199,9 @@ class UpdateOfflineRepositoryTask extends DefaultTask {
     }
 
     // collect ivy xml files
-    if (this.getIncludeIvyXmls()) {
-      collectIvyXmls(componentIds, repositoryFiles)
-    }
+//    if (this.getIncludeIvyXmls()) {
+//      collectIvyXmls(componentIds, repositoryFiles)
+//    }
 
     return repositoryFiles
   }
@@ -232,6 +233,10 @@ class UpdateOfflineRepositoryTask extends DefaultTask {
     pomModelResolver.componentCache().each { componentId, pomFile ->
       addToMultimap(repositoryFiles, componentId, pomFile)
     }
+
+
+
+
   }
 
   private Model resolvePom(PomDependencyModelResolver pomModelResolver, File pomFile) {
@@ -277,6 +282,7 @@ class UpdateOfflineRepositoryTask extends DefaultTask {
     }
   }
 
+  /*
   private void collectIvyXmls(Set<ComponentIdentifier> componentIds, Map<ComponentIdentifier, Set<File>> repositoryFiles) {
     logger.trace("Collecting ivy xml files")
 
@@ -296,11 +302,12 @@ class UpdateOfflineRepositoryTask extends DefaultTask {
       logger.trace("Adding ivy artifact for component'{}' (location '{}')", component.id, ivyXml)
       addToMultimap(repositoryFiles, component.id, ivyXml)
     }
-  }
+  }*/
 
   // Activate online repositories and collect dependencies.
   // Switch back to local repository afterwards.
   private def withRepositoryFiles(Closure<Map<ModuleComponentIdentifier, Set<File>>> callback) {
+
     def originalRepositories = project.repositories.collect()
 
     project.repositories.clear()
@@ -310,12 +317,25 @@ class UpdateOfflineRepositoryTask extends DefaultTask {
 
     project.repositories.addAll(extension.repositoryHandler)
 
-    def files = collectRepositoryFiles(getConfigurations())
+    def files = collectRepositoryFiles(getConfigurations(project))
 
+    def fileCollection = files
     project.repositories.clear()
     project.repositories.addAll(originalRepositories)
 
-    callback(files)
+    for (Project pj : project.subprojects){
+      def originalRepositoriesa = pj.repositories.collect()
+      pj.repositories.clear()
+      pj.repositories.addAll(extension.repositoryHandler)
+      def filea = collectRepositoryFiles(getConfigurations(pj))
+      pj.repositories.clear()
+      pj.repositories.addAll(originalRepositoriesa)
+      fileCollection = fileCollection + filea
+    }
+
+    callback(fileCollection)
+
+
   }
 
   // Return the offline-repository target directory for the given component (naming follows maven conventions)

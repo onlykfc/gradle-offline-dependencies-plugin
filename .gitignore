@@ -1,13 +1,13 @@
-.gradle
-build/
-gradle-app.setting
-!gradle-wrapper.jar
-.gradletasknamecache
-.idea
-*.iml
-*.eml
-*.ipr
-*.iws
-/.settings/
+# OS-specific files
 .DS_Store
-Thumbs.db
+
+*.iml
+.gradle/
+.idea/
+
+# Built application files
+/*/build/
+build/
+
+# Local configuration file (sdk path, etc)
+/local.properties
