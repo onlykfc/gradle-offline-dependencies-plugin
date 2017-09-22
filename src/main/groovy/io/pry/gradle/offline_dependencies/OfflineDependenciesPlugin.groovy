@@ -2,9 +2,11 @@ package io.pry.gradle.offline_dependencies
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.Task
 import org.gradle.api.artifacts.dsl.RepositoryHandler
 import org.gradle.api.internal.artifacts.BaseRepositoryFactory
 import org.gradle.api.internal.artifacts.dsl.DefaultRepositoryHandler
+import org.gradle.api.tasks.bundling.Zip
 import org.gradle.internal.reflect.Instantiator
 
 class OfflineDependenciesPlugin implements Plugin<Project> {
@@ -24,10 +26,8 @@ class OfflineDependenciesPlugin implements Plugin<Project> {
     )
 
     def extension = project.extensions.create(EXTENSION_NAME, OfflineDependenciesExtension, repositoryHandler)
-
     project.logger.info("Offline dependencies root configured at '${project.ext.offlineRepositoryRoot}'")
-
-    project.task('updateOfflineRepository', type: UpdateOfflineRepositoryTask) {
+    def odTask = project.task('updateOfflineRepository', type: UpdateOfflineRepositoryTask) {
       conventionMapping.root = { "${project.offlineRepositoryRoot}" }
       conventionMapping.configurationNames = { extension.configurations }
       conventionMapping.buildscriptConfigurationNames = { extension.buildscriptConfigurations }
@@ -37,5 +37,20 @@ class OfflineDependenciesPlugin implements Plugin<Project> {
       conventionMapping.includeIvyXmls = { extension.includeIvyXmls }
       conventionMapping.includeBuildscriptDependencies = { extension.includeBuildscriptDependencies }
     }
+    odTask.group = "packing source"
+    odTask.description = "packing all projects dependencies and source code"
+
+
+    Task srcZipTask = project.task("srcZip", type: Zip){
+      from project.projectDir
+      exclude '*.iml','import-summary.txt','local.properties',
+              '.gradle/','.idea/','build/','.svn/','.DS_Store',
+              '.git/','/*/build/',project.name+'.zip'
+      archiveName project.name+'.zip'
+    }
+    srcZipTask.group = "packing source"
+    srcZipTask.description = "packing all projects dependencies and source code"
+
+
   }
 }
